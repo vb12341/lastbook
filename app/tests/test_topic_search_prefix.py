@@ -34,12 +34,16 @@ WORDS = ROOT / 'web' / 'words.js'
 TOPICS = [json.loads(p.read_text(encoding='utf-8')) for p in sorted((ROOT / 'content' / 'topics').glob('*.json'))]
 QSTOP = re.search(r"const QSTOP = new Set\('([^']*)'\.split", (ROOT / 'web' / 'app.js').read_text(encoding='utf-8')).group(1).split(' ')
 
-# upstream/main when these were measured. Re-measure on a new main and record the new one.
-BASELINE = '51658f5'
+# upstream/main these were last re-measured on. Re-measure on a new main and record the new one.
+BASELINE = '40bac14'
 
-#   (search, the unrelated first result it gets on BASELINE, the first results that would be right, the short word
-#    and the longer word it starts). The right results are choices that name the subject in their own label or hint
-#    on BASELINE; () where the guides give no clear answer, so any new result is reported as "changed".
+#   (search, was, right, why), where:
+#     was    the wrong first result this row was recorded with -- the unrelated longer word winning. It is what the
+#            row guards against, not what the search gives today: a row listed in FIXED no longer returns it, and
+#            that is the point of the row. A search that goes back to its "was" is the regression this file catches.
+#     right  the first results that would be right, as choices that name the subject in their own label or hint;
+#            () where the guides give no clear answer, so any new result is reported as "changed".
+#     why    the short word and the longer word it starts.
 FALSE_MATCHES = [
     ('stomach pain', ['grow', 'soil-unknown'], (['health', 'start'], ['hurt', 'diarrhea']), 'pain / paint ("lead paint")'),
     ('left arm pain', ['grow', 'soil-unknown'], (['health', 'start'], ['hurt', 'sudden']), 'pain / paint'),
@@ -59,9 +63,9 @@ FALSE_MATCHES = [
     ('ran out of insulin', ['food', 'outage'], (['health', 'chronic'],), 'out / outage'),
     ('high fever', ['disaster', 'highrise-fire'], (['health', 'start'],), 'high / high-rise'),
 ]
-# The false matches still present on BASELINE. Taking a row out of here pins its fix; nothing is ever added
-# without a new row above and a reason. Eleven rows have left: each one now lands on a result its row lists as
-# right, and putting it back on the wrong result fails test_false_matches_only_shrink.
+# The rows whose false match is gone. Adding a row here pins its fix: it now lands on a result the row lists as
+# right, and putting it back on its "was" fails test_false_matches_only_shrink. Each entry says what fixed it.
+# Eleven rows so far.
 FIXED = {
     'stomach pain', 'left arm pain',    # #326, "pain" is a keyword of the health and hurt guides
     'fall from ladder', 'elderly fall',  # #327, "fall" and "fell" are keywords of the first aid guide
@@ -72,6 +76,7 @@ FIXED = {
     'high fever',                       # #330, the health start hint names a high fever
     'what to pack',                     # #432, the evacuation guide has a packing choice of its own
 }
+# What is still wrong on BASELINE: every row above that FIXED has not claimed.
 KNOWN = {q for q, _, _, _ in FALSE_MATCHES} - FIXED
 
 #   (search, the first result that must hold, the short word and the longer word it relies on)
@@ -107,9 +112,9 @@ def first(result):
     return [top[0], top[1]] if top else None
 
 
-def state(got, bad, right):
+def state(got, was, right):
     """A recorded false match now: 'still' on its wrong result, 'fixed' on a result listed as right, else 'changed'."""
-    return 'still' if got == bad else 'fixed' if got in [list(r) for r in right] else 'changed'
+    return 'still' if got == was else 'fixed' if got in [list(r) for r in right] else 'changed'
 
 
 @unittest.skipUnless(NODE, 'needs node on PATH')
@@ -119,33 +124,33 @@ class TopicSearchPrefix(unittest.TestCase):
         cls.got = dict(zip(CASES['questions'], (first(r) for r in run())))
 
     def test_false_matches_only_shrink(self):
-        still = {q for q, bad, _, _ in FALSE_MATCHES if self.got[q] == bad}
+        still = {q for q, was, _, _ in FALSE_MATCHES if self.got[q] == was}
         self.assertLessEqual(still, KNOWN, 'a false match that was fixed is back')
 
     def test_a_row_out_of_known_is_fixed_not_changed(self):
         # Taking a row out of KNOWN pins a fix, so the row needs a right result and must be on it.
-        for q, bad, right, why in FALSE_MATCHES:
+        for q, was, right, why in FALSE_MATCHES:
             if q not in KNOWN:
                 with self.subTest(q=q, why=why):
-                    self.assertEqual(state(self.got[q], bad, right), 'fixed')
+                    self.assertEqual(state(self.got[q], was, right), 'fixed')
 
     def test_changed_is_never_fixed(self):
         # One wrong result swapped for another, or for no result, is "changed"; so is any new result of a row
         # with no right result listed. Only a listed result is "fixed".
-        bad, right = ['grow', 'soil-unknown'], (['health', 'start'], ['hurt', 'diarrhea'])
-        self.assertEqual(state(bad, bad, right), 'still')
-        self.assertEqual(state(['hurt', 'diarrhea'], bad, right), 'fixed')
-        self.assertEqual(state(['repair', 'build'], bad, right), 'changed')
-        self.assertEqual(state(['health', None], bad, right), 'changed')
-        self.assertEqual(state(None, bad, right), 'changed')
-        self.assertEqual(state(['health', 'start'], bad, ()), 'changed')
-        self.assertEqual(state(bad, bad, ()), 'still')
+        was, right = ['grow', 'soil-unknown'], (['health', 'start'], ['hurt', 'diarrhea'])
+        self.assertEqual(state(was, was, right), 'still')
+        self.assertEqual(state(['hurt', 'diarrhea'], was, right), 'fixed')
+        self.assertEqual(state(['repair', 'build'], was, right), 'changed')
+        self.assertEqual(state(['health', None], was, right), 'changed')
+        self.assertEqual(state(None, was, right), 'changed')
+        self.assertEqual(state(['health', 'start'], was, ()), 'changed')
+        self.assertEqual(state(was, was, ()), 'still')
 
     def test_right_results_are_real_choices_and_not_the_wrong_one(self):
         choices = {(t['id'], c['id']) for t in TOPICS for c in t.get('choices', [])}
-        for q, bad, right, _ in FALSE_MATCHES:
+        for q, was, right, _ in FALSE_MATCHES:
             with self.subTest(q=q):
-                self.assertNotIn(bad, [list(r) for r in right])
+                self.assertNotIn(was, [list(r) for r in right])
                 for r in right:
                     self.assertIn(tuple(r), choices)
 
@@ -160,8 +165,8 @@ def report():
     print(f'baseline: {BASELINE}')
     print('\nFalse matches (first result comes from an unrelated longer word)')
     count = {'still': 0, 'fixed': 0, 'changed': 0}
-    for q, bad, right, why in FALSE_MATCHES:
-        st = state(got[q], bad, right)
+    for q, was, right, why in FALSE_MATCHES:
+        st = state(got[q], was, right)
         count[st] += 1
         note = ', can leave KNOWN' if st == 'fixed' and q in KNOWN else ', not judged' if st == 'changed' else ''
         print(f"  {st}{note}  {q!r}  {got[q]}  ({why})")
