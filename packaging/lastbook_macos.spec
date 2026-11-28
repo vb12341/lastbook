@@ -75,7 +75,7 @@ if SPARKLE_KEY:
     if not update_macos.public_key_ok(SPARKLE_KEY):
         raise SystemExit('LASTBOOK_SPARKLE_PUBLIC_ED_KEY is not a base64 Ed25519 public key')
 ICON = Path(SPECPATH) / 'Lastbook.icns'
-app = BUNDLE(coll, name='Lastbook.app', icon=str(ICON) if ICON.exists() else None, bundle_identifier='local.lastbook.desktop', version='1.1.18', info_plist={
+app = BUNDLE(coll, name='Lastbook.app', icon=str(ICON) if ICON.exists() else None, bundle_identifier='local.lastbook.desktop', version='1.1.19', info_plist={
     'CFBundleDisplayName': 'Lastbook',
     'CFBundleName': 'Lastbook',
     'LSApplicationCategoryType': 'public.app-category.reference',

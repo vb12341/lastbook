@@ -106,7 +106,7 @@ def bar(current, over=False):
     links.append(f'<a class="github-nav" href="{GITHUB}">GitHub <span aria-hidden="true">↗</span></a>')
     return f"""<header class="bar{' bar-over' if over else ''}">
   <div class="bar-in">
-    <a class="brand" href="/"><img src="/img/ink/mark.svg" alt="" width="36" height="36"><span>Lastbook</span></a>
+    <a class="brand" href="/"><img src="/img/icon-192.png" alt="" width="36" height="36"><span>Lastbook</span></a>
     <nav class="nav community-nav" aria-label="Main">
       {chr(10).join("      " + l for l in links).strip()}
     </nav>

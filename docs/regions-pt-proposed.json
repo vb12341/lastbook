@@ -1,5 +1,5 @@
 {
-  "about": "Proposed region definitions for detailed maps of Portugal: seven continental NUTS II, the Azores split into two regions that follow the INE address dataset's own two groups (Corvo and Flores are about 240 km west of the rest (242 km straight-line between the published Flores and Horta airport coordinates)), and Madeira. See docs/REGIONS-PT.md. Boxes carry full-precision inputs (GISCO polygon bounds; the two Azores boxes from the INE address groups' exact extremes) with the 0.15° outward margin floored/ceiled to 0.01°.",
+  "about": "Proposed region definitions for detailed maps of Portugal: seven continental NUTS II, the Azores split into two regions that follow the INE address dataset's own two groups (Corvo and Flores are about 240 km west of the rest (242 km straight-line between the published Flores and Horta airport coordinates)), and Madeira. See docs/REGIONS-PT.md. Boxes carry full-precision inputs (CAOP 2025 polygon bounds for the mainland regions and Madeira; the two Azores boxes from the INE address groups' exact extremes) with the 0.15° outward margin floored/ceiled to 0.01°. The first revision read the polygon bounds from GISCO; every polygon box was since re-measured from the CAOP (Madeira 2026-11-22, the mainland 2026-11-25) and the GISCO numbers stay in the cross-checks.",
   "status": "proposal",
   "checked": "2026-11-20",
   "codes": {
@@ -21,9 +21,9 @@
     "CC-BY-4.0": {
       "name": "Creative Commons Attribution 4.0 International",
       "url": "https://creativecommons.org/licenses/by/4.0/",
-      "attribution": "INE addresses: \"Instituto Nacional de Estatística, I.P.\" (per the OpenAddresses source file). GeoNames: \"give credit to GeoNames\". DGT products: licence page not read yet (not checked).",
+      "attribution": "INE addresses: \"Instituto Nacional de Estatística, I.P.\" (per the OpenAddresses source file). GeoNames: \"give credit to GeoNames\". DGT/CAOP: attribution to the Direção-Geral do Território (confirmed from DGT's own open-data page, 2026-11-22); COS and MDT remain not checked.",
       "share_alike": false,
-      "verified": "Attribution rows read from OpenAddresses' sources/pt/countrywide.json (opened 2026-11-20); DGT licence page not reached."
+      "verified": "Attribution rows read from OpenAddresses' sources/pt/countrywide.json (opened 2026-11-20); DGT's CAOP licence confirmed 2026-11-22 (see the 22 November entry in REGIONS-PT.md)."
     },
     "Copernicus": {
       "name": "Copernicus DEM licence",
@@ -45,8 +45,8 @@
       "attribution": "© EuroGeographics, source acknowledged, notice visible in any publication using the data.",
       "share_alike": false,
       "commercial": false,
-      "verified": "Terms page opened 2026-11-20: free use 'on condition that the data will not be used for commercial purposes'. This proposal (research documentation in a free repository) fits; boxes derived from GISCO boundaries for redistribution inside a shipped map pack would not — a shipped build should take region boxes from the CAOP (terms to be verified) or ask Eurostat.",
-      "scope": "proposal inputs only, not pack contents"
+      "verified": "Terms page opened 2026-11-20: free use 'on condition that the data will not be used for commercial purposes'. This proposal (research documentation in a free repository) fits; boxes derived from GISCO boundaries for redistribution inside a shipped map pack would not. The proposal's polygon boxes were re-measured from the CAOP on 2026-11-22 and 2026-11-25, so no box in this file derives from GISCO; these terms now cover the GISCO citations in the cross-checks only.",
+      "scope": "cross-check citations only, not pack contents"
     }
   },
   "country_layers": [
@@ -61,7 +61,7 @@
   ],
   "not_open_nationwide": [
     "Postcode areas: the CTT dictionary is a commercial product and its terms were not verified (page did not answer from our route on 2026-11-20); expected to mirror the Correos/CNIG case in REGIONS-ES.md. The postcode attached to each address in the INE CC BY 4.0 data is a different thing and is what address search needs.",
-    "Per-region address cuts: Portugal's postcodes carry no province codes, and the region bounding boxes overlap heavily (1,752,802 of 5,911,139 rows fall in two or more boxes). A per-region index needs a municipality-to-region table from the INE municipality register, or per-municipality cuts keyed on the address rows' own city field.",
+    "Per-region address cuts: Portugal's postcodes carry no province codes, and the region bounding boxes overlap heavily (1,842,324 of 5,911,139 rows fall in two or more boxes). A per-region index needs a municipality-to-region table from the INE municipality register, or per-municipality cuts keyed on the address rows' own city field.",
     "Dams and hydrography inventories: APA/SNIAmb did not respond on 2026-11-20; OSM waterway=dam (805 ways, 35 nodes) and 1,922 weirs are the practical source meanwhile."
   ],
   "addressing": {
@@ -78,16 +78,16 @@
       "admin_level": "NUTS II",
       "nuts": "PT11",
       "bbox": {
-        "west": -8.878146235999964,
-        "south": 40.76224905000004,
-        "east": -6.193610942999953,
-        "north": 42.15441906400008,
-        "margin_west": -9.03,
-        "margin_south": 40.61,
-        "margin_east": -6.04,
+        "west": -8.881059,
+        "south": 40.758764,
+        "east": -6.189159,
+        "north": 42.154312,
+        "margin_west": -9.04,
+        "margin_south": 40.6,
+        "margin_east": -6.03,
         "margin_north": 42.31
       },
-      "bbox_source": "GISCO NUTS 2024 1:3M polygon bounds"
+      "bbox_source": "CAOP 2025 (Continente) NUTS II polygon bounds, converted vertex by vertex from EPSG:3763"
     },
     {
       "code": "pt-19",
@@ -97,16 +97,16 @@
       "admin_level": "NUTS II",
       "nuts": "PT19",
       "bbox": {
-        "west": -9.040260312999976,
-        "south": 39.46600741300006,
-        "east": -6.785443348999934,
-        "north": 41.03366698600007,
+        "west": -9.040261,
+        "south": 39.465251,
+        "east": -6.78096,
+        "north": 41.037485,
         "margin_west": -9.2,
         "margin_south": 39.31,
         "margin_east": -6.63,
         "margin_north": 41.19
       },
-      "bbox_source": "GISCO NUTS 2024 1:3M polygon bounds"
+      "bbox_source": "CAOP 2025 (Continente) NUTS II polygon bounds, converted vertex by vertex from EPSG:3763"
     },
     {
       "code": "pt-1a",
@@ -116,16 +116,16 @@
       "admin_level": "NUTS II",
       "nuts": "PT1A",
       "bbox": {
-        "west": -9.493193515999963,
-        "south": 38.68040611600003,
-        "east": -8.846265806999952,
-        "north": 39.06145040100006,
-        "margin_west": -9.65,
-        "margin_south": 38.53,
+        "west": -9.500527,
+        "south": 38.673146,
+        "east": -8.84154,
+        "north": 39.064719,
+        "margin_west": -9.66,
+        "margin_south": 38.52,
         "margin_east": -8.69,
         "margin_north": 39.22
       },
-      "bbox_source": "GISCO NUTS 2024 1:3M polygon bounds"
+      "bbox_source": "CAOP 2025 (Continente) NUTS II polygon bounds, converted vertex by vertex from EPSG:3763"
     },
     {
       "code": "pt-1b",
@@ -135,16 +135,16 @@
       "admin_level": "NUTS II",
       "nuts": "PT1B",
       "bbox": {
-        "west": -9.250221955999962,
-        "south": 38.412963869000066,
-        "east": -8.496464292999974,
-        "north": 38.838777450000066,
-        "margin_west": -9.41,
-        "margin_south": 38.26,
+        "west": -9.262976,
+        "south": 38.409074,
+        "east": -8.490972,
+        "north": 38.845424,
+        "margin_west": -9.42,
+        "margin_south": 38.25,
         "margin_east": -8.34,
-        "margin_north": 38.99
+        "margin_north": 39.0
       },
-      "bbox_source": "GISCO NUTS 2024 1:3M polygon bounds"
+      "bbox_source": "CAOP 2025 (Continente) NUTS II polygon bounds, converted vertex by vertex from EPSG:3763"
     },
     {
       "code": "pt-1c",
@@ -154,16 +154,16 @@
       "admin_level": "NUTS II",
       "nuts": "PT1C",
       "bbox": {
-        "west": -8.875196123999956,
-        "south": 37.32221481800008,
-        "east": -6.931738572999961,
-        "north": 39.66278609400007,
-        "margin_west": -9.03,
-        "margin_south": 37.17,
+        "west": -8.912868,
+        "south": 37.318936,
+        "east": -6.931499,
+        "north": 39.66368,
+        "margin_west": -9.07,
+        "margin_south": 37.16,
         "margin_east": -6.78,
         "margin_north": 39.82
       },
-      "bbox_source": "GISCO NUTS 2024 1:3M polygon bounds"
+      "bbox_source": "CAOP 2025 (Continente) NUTS II polygon bounds, converted vertex by vertex from EPSG:3763"
     },
     {
       "code": "pt-1d",
@@ -173,16 +173,16 @@
       "admin_level": "NUTS II",
       "nuts": "PT1D",
       "bbox": {
-        "west": -9.521966028999941,
-        "south": 38.73601446300006,
-        "east": -7.812815994999937,
-        "north": 39.83569006300007,
-        "margin_west": -9.68,
+        "west": -9.51703,
+        "south": 38.73149,
+        "east": -7.808988,
+        "north": 39.83873,
+        "margin_west": -9.67,
         "margin_south": 38.58,
-        "margin_east": -7.66,
+        "margin_east": -7.65,
         "margin_north": 39.99
       },
-      "bbox_source": "GISCO NUTS 2024 1:3M polygon bounds"
+      "bbox_source": "CAOP 2025 (Continente) NUTS II polygon bounds, converted vertex by vertex from EPSG:3763"
     },
     {
       "code": "pt-15",
@@ -192,16 +192,16 @@
       "admin_level": "NUTS II",
       "nuts": "PT15",
       "bbox": {
-        "west": -8.982023424999966,
-        "south": 36.97100295800004,
-        "east": -7.401590665999947,
-        "north": 37.52625636400006,
-        "margin_west": -9.14,
-        "margin_south": 36.82,
-        "margin_east": -7.25,
+        "west": -8.997546,
+        "south": 36.96171,
+        "east": -7.393304,
+        "north": 37.529131,
+        "margin_west": -9.15,
+        "margin_south": 36.81,
+        "margin_east": -7.24,
         "margin_north": 37.68
       },
-      "bbox_source": "GISCO NUTS 2024 1:3M polygon bounds"
+      "bbox_source": "CAOP 2025 (Continente) NUTS II polygon bounds, converted vertex by vertex from EPSG:3763"
     },
     {
       "code": "pt-20w",

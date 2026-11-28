@@ -50,40 +50,45 @@ address groups the INE dataset already uses, and Madeira. A continental NUTS II 
 what runs there: the CCDRs (comissões de coordenação e desenvolvimento regional) manage territory, regional planning and
 civil-protection coordination, and the two autonomous regions have their own governments.
 
-Boxes were computed from Eurostat GISCO's NUTS 2024 boundaries, 1:3 million GeoJSON (`NUTS_RG_03M_2024_4326_LEVL_2.geojson`,
-opened; see "Licence notes" for what its terms allow). Every vertex of every polygon was read; the coordinates are
-ETRS89 (EPSG:4258), which differs from WGS 84 by far less than the 0.01° rounding. Each box was then widened by 0.15°
-and rounded **outward** to 0.01° — the west and south edges floored, the east and north edges ceiled — the same margin
-`map_sets.state` uses for US states.
+Each box was widened by 0.15° and rounded **outward** to 0.01° — the west and south edges floored, the east and north
+edges ceiled — the same margin `map_sets.state` uses for US states. The first revision read the polygon bounds from
+Eurostat GISCO's NUTS 2024 boundaries (1:3 million GeoJSON, `NUTS_RG_03M_2024_4326_LEVL_2.geojson`; the coordinates
+are ETRS89, which differs from WGS 84 by far less than the 0.01° rounding). Every polygon box has since been
+re-measured from the official CAOP 2025 polygons — Madeira on 22 November, the seven continental regions on
+25 November — and the GISCO numbers stay in the cross-checks as the measure the first revision was verified against.
 
-The seven continental boxes and Madeira's come from the GISCO polygon bounds. The two Azores boxes cannot come from a
+Eight of the ten boxes now carry CAOP polygon bounds. The two Azores boxes cannot come from a
 polygon, because GISCO has no sub-regional NUTS for the islands, so they come from the INE address dataset's own two
-groups of address points (marked in the table). The inputs are the GeoJSON above for the polygon boxes and the counted
-address rows described in "Addresses measured" for the island boxes, so every number here is recomputable from those
-two datasets with the rule stated. Madeira's row was since re-measured from the official CAOP 2025 polygon — see the
-22 November entry in "What was checked, and what was not"; the seven continental rows keep GISCO until each is
-verified the same way, because the CAOP download ships one region's boundaries per file.
+groups of address points (marked in the table). The inputs are the CAOP 2025 geopackages for the polygon boxes and the
+counted address rows described in "Addresses measured" for the island boxes, so every number here is recomputable from
+those datasets with the rule stated.
 
 As a check, the outer edges match Portugal's known extreme points: Cabo da Roca in the west (-9.50°), the eastern border
 with Spain (-6.21°), Melgaço and Castro Laboreiro in the north (42.15°), and Cabo de Santa Maria near Faro in the south
-(36.97°). The address dataset's own per-group boxes agree from inside on every edge (see "Addresses measured").
+(36.96°). The address dataset's own per-group boxes agree from inside on every edge (see "Addresses measured").
 
 | Code | NUTS | Name | Box (west, south, east, north) | Box with 0.15° margin | Box source |
 |---|---|---|---|---|---|
-| `pt-11` | PT11 | Norte | -8.8781, 40.7622, -6.1936, 42.1544 | -9.03, 40.61, -6.04, 42.31 | GISCO polygon |
-| `pt-19` | PT19 | Centro | -9.0403, 39.4660, -6.7854, 41.0337 | -9.20, 39.31, -6.63, 41.19 | GISCO polygon |
-| `pt-1a` | PT1A | Área Metropolitana de Lisboa (Grande Lisboa) | -9.4932, 38.6804, -8.8463, 39.0615 | -9.65, 38.53, -8.69, 39.22 | GISCO polygon |
-| `pt-1b` | PT1B | Área Metropolitana de Lisboa (Península de Setúbal) | -9.2502, 38.4130, -8.4965, 38.8388 | -9.41, 38.26, -8.34, 38.99 | GISCO polygon |
-| `pt-1c` | PT1C | Alentejo | -8.8752, 37.3222, -6.9317, 39.6628 | -9.03, 37.17, -6.78, 39.82 | GISCO polygon |
-| `pt-1d` | PT1D | Oeste e Vale do Tejo | -9.5220, 38.7360, -7.8128, 39.8357 | -9.68, 38.58, -7.66, 39.99 | GISCO polygon |
-| `pt-15` | PT15 | Algarve | -8.9820, 36.9710, -7.4016, 37.5263 | -9.14, 36.82, -7.25, 37.68 | GISCO polygon |
+| `pt-11` | PT11 | Norte | -8.8811, 40.7588, -6.1892, 42.1543 | -9.04, 40.60, -6.03, 42.31 | CAOP 2025 polygon |
+| `pt-19` | PT19 | Centro | -9.0403, 39.4653, -6.7810, 41.0375 | -9.20, 39.31, -6.63, 41.19 | CAOP 2025 polygon |
+| `pt-1a` | PT1A | Área Metropolitana de Lisboa (Grande Lisboa) | -9.5005, 38.6731, -8.8415, 39.0647 | -9.66, 38.52, -8.69, 39.22 | CAOP 2025 polygon |
+| `pt-1b` | PT1B | Área Metropolitana de Lisboa (Península de Setúbal) | -9.2630, 38.4091, -8.4910, 38.8454 | -9.42, 38.25, -8.34, 39.00 | CAOP 2025 polygon |
+| `pt-1c` | PT1C | Alentejo | -8.9129, 37.3189, -6.9315, 39.6637 | -9.07, 37.16, -6.78, 39.82 | CAOP 2025 polygon |
+| `pt-1d` | PT1D | Oeste e Vale do Tejo | -9.5170, 38.7315, -7.8090, 39.8387 | -9.67, 38.58, -7.65, 39.99 | CAOP 2025 polygon |
+| `pt-15` | PT15 | Algarve | -8.9975, 36.9617, -7.3933, 37.5291 | -9.15, 36.81, -7.24, 37.68 | CAOP 2025 polygon |
 | `pt-20w` | PT20 (west) | Açores: Corvo e Flores | -31.2660, 39.3749, -31.1104, 39.6766 | -31.42, 39.22, -30.96, 39.83 | INE address points (group `AC25`) |
 | `pt-20e` | PT20 (east) | Açores: restantes ilhas | -28.8250, 36.9295, -25.0138, 39.0954 | -28.98, 36.77, -24.86, 39.25 | INE address points (group `AC26`) |
 | `pt-30` | PT30 | Região Autónoma da Madeira | -17.2659, 30.0288, -15.8537, 33.1282 | -17.42, 29.87, -15.70, 33.28 | CAOP 2025 polygon |
 
 Cross-checks between the two datasets:
 
-- The address dataset's mainland group (`PTCONT`) agrees from inside with the continental boxes on every edge.
+- The address dataset's mainland group (`PTCONT`) sits inside the continental boxes: the seven CAOP boxes contain all
+  5,669,971 mainland rows. The first revision's GISCO boxes left 1,540 mainland rows outside them, all labelled
+  geocoding outliers; the CAOP boxes contain every one of them.
+- Against the GISCO 1:3M bounds, all but three of the 28 continental edges agree within 0.01°; the larger moves sit on
+  the Atlantic coast — the Alentejo box reaches 0.038° further west, the Algarve 0.016° and the Setúbal peninsula
+  0.013°. The Centro box's west edge matches GISCO's to 2×10⁻⁷° between the two independent datasets (GeoJSON degrees
+  against a metre-based projection converted vertex by vertex), which also checks the conversion itself.
 - Madeira's address group (`MAD`) sits inside the polygon box on every edge: its raw points reach
   -17.2578…-15.8637 and 30.0351…33.0886 against the official CAOP polygon's -17.2659…-15.8537 and 30.0288…33.1282
   (and inside the earlier GISCO row of -17.2660…-15.8554 and 30.0257…33.1040 as well).
@@ -196,15 +201,16 @@ WHERE country = 'PT';
   ALMADA into `AL` (Alabama) and COIMBRA into `CO` (Colorado). A region
   cut must come from the postcode or the box, never from this field.
 - **Coverage by region.** The INE CSV's rows were counted against the ten region boxes at **full precision** — the
-  GISCO polygon bounds and the address groups' own exact extremes, not the four-decimal figures printed in the table
+  CAOP polygon bounds and the address groups' own exact extremes, not the four-decimal figures printed in the table
   (counting against those printed figures drops three rows in each island group, whose true extremes carry more
   decimals; an earlier revision of this proposal made exactly that mistake, and the counts below supersede it). The
-  totals double-count at borders: **1,752,802 of 5,911,139 rows fall inside two or more boxes**, because neighbouring
+  totals double-count at borders: **1,842,324 of 5,911,139 rows fall inside two or more boxes**, because neighbouring
   regions' bounding boxes overlap over large areas (the Norte and Centro boxes alone share a 2°-by-0.3° band).
-  Per-box counts, for scale only, with double counting: Norte 1,952,132; Centro 1,407,800; Oeste e Vale do Tejo
-  1,390,895; Grande Lisboa 1,148,767; Península de Setúbal 1,031,877; Alentejo 632,202; Algarve 393,019; Madeira
-  130,271; Azores east 108,523; Corvo and Flores 2,374. The three island counts equal their source groups exactly;
-  1,540 rows fall outside every box, all labelled geocoding outliers; the 36.93° N row above is not one of them — it
+  Per-box counts, for scale only, with double counting: Norte 1,957,747; Centro 1,414,055; Oeste e Vale do Tejo
+  1,422,122; Grande Lisboa 1,163,567; Península de Setúbal 1,067,495; Alentejo 692,635; Algarve 393,246; Madeira
+  130,271; Azores east 108,523; Corvo and Flores 2,374. The three island counts equal their source groups exactly,
+  and the seven CAOP continental boxes contain every mainland row — the first revision's GISCO boxes left 1,540
+  mainland rows outside them, all labelled geocoding outliers. The 36.93° N row above is not one of those — it
   supplies the southern edge of the `pt-20e` box itself. Unlike
   Spain — whose province-coded postcodes cut exactly — **a per-region address index for Portugal cannot be cut by
   box**; it needs a municipality→region table from the INE municipality register, or per-municipality cuts keyed on
@@ -223,7 +229,7 @@ The raw INE CSV (5,911,139 rows, download date 2026-02-23, CC BY 4.0) was read r
   2,374).
 - The per-group bounding boxes, computed from the rows: mainland -9.5060…-6.2118, 36.9724…42.1531; Madeira
   -17.2578…-15.8637, 30.0351…33.0886; Azores east -28.8250…-25.0138, 36.9295…39.0954; Corvo and Flores
-  -31.2660…-31.1104, 39.3749…39.6766. Every mainland edge falls inside the GISCO-derived region boxes (Cabo da Roca,
+  -31.2660…-31.1104, 39.3749…39.6766. Every mainland edge falls inside the CAOP-derived region boxes (Cabo da Roca,
   the eastern border, Melgaço in the north and the Faro islands in the south), which cross-checks both datasets.
 
 ## Help points
@@ -273,13 +279,16 @@ All proposed licences allow redistribution in a free offline library, including 
   and the copyright notice "© EuroGeographics" visible in any publication using the data. This proposal — research
   documentation in a free repository — fits that. **Boxes derived from GISCO boundaries for redistribution inside a
   shipped map pack would not**, because the library's own distribution involves commercial links (the buying guide's
-  affiliate). A shipped build should take region boxes from the CAOP (DGT's open administrative cartography, terms to
-  be verified) or ask Eurostat; the GISCO-derived boxes below are proposal inputs, not pack contents.
+  affiliate). That case no longer arises for the polygons: every polygon box in this proposal is now measured from the
+  CAOP (DGT's open administrative cartography, CC BY 4.0 — see the 22 and 25 November entries in "What was checked,
+  and what was not"), and the GISCO numbers remain as the cross-check the first revision was verified against.
 - **Copernicus DEM.** The Copernicus licence, as in REGIONS.md.
 - **ODbL** (OSM, Overture buildings, Microsoft footprints). As for the US map.
 - **CC BY 4.0, GeoNames.** "Give credit to GeoNames."
-- **DGT cartography** (CAOP, COS, MDT). Not read today; the DGT publishes these openly but the licence page was not
-  reachable. To verify in a browser before any build that uses them.
+- **DGT cartography** (CAOP, COS, MDT). The CAOP's terms are confirmed — CC BY 4.0, attribution to the
+  Direção-Geral do Território, high-value dataset under Regulation (EU) 2023/138 with no INSPIRE use constraints
+  (see the 22 November entry in "What was checked, and what was not"). COS and MDT remain not checked; to verify in
+  a browser before any build that uses them.
 
 These notices would belong wherever the map already credits its sources, and in `THIRD_PARTY_NOTICES.md` if that is
 where the maintainers keep data licences.
@@ -314,8 +323,8 @@ other proposals.
 1. **Codes in setup.** Whether `pt-11` and the others are acceptable as a manifest `id`, in `map-set.json` and in
    `Lastbook-Map-<id>.zip`, and how setup groups ten Portuguese regions; `carry_over()`'s `[A-Z]{2}` pattern must
    learn the new shape (see "Codes").
-2. **The box rule**, as in REGIONS.md — here from GISCO NUTS 2024, to be replaced by the CAOP (the official
-   administrative cartography) once it can be opened in a browser.
+2. **The box rule**, as in REGIONS.md — the boxes now come from the CAOP (the official administrative cartography,
+   CC BY 4.0); the 0.15° outward margin and the outward rounding stay as proposed.
 3. **NUTS II or districts.** ISO 3166-2:PT lists the 18 districts and the two autonomous regions, and districts are the
    division Portuguese readers know by name; but districts have had no administration for decades, while NUTS II is
    what the CCDRs and the INE data actually run on. This proposal uses NUTS II. If the maintainers prefer ISO codes,
@@ -368,6 +377,14 @@ other proposals.
   and west, south and east agree with GISCO by at most 0.0031°. All 130,271 address rows sit inside the official box, and
   the address count reproduces exactly. The pilot's builder, `tools/build_region_pt_30.py`, cuts the Geofabrik
   country extract to this box and passes it to the repository's own `tools/build_map.py` unchanged.
+- **Updated on 25 November 2026:** the seven continental boxes, re-measured from the official CAOP 2025 polygons the
+  same way Madeira was. `CAOP_Continente_2025-gpkg.zip` (111,647,845 bytes, SHA-256
+  `87cd67f4b1fbadf23d9324e6fb231ff05531e4db347af36ccc7c6cbabe3ecd1d`) holds one geopackage,
+  `Continente_CAOP2025.gpkg`, in ETRS89 / Portugal TM06 (EPSG:3763; projection parameters read from the file's own
+  WKT), with the seven NUTS II polygons carrying about 319,000 vertices in total. Every vertex was converted to
+  lon/lat. Against the GISCO 1:3M bounds, all but three of the 28 edges agree within 0.01° (the exceptions are the
+  Atlantic-coast edges listed in the cross-checks above). The CAOP boxes contain all 5,669,971 mainland address rows,
+  and the per-box counts and the overlap total in "Addresses in Overture, measured" were recomputed against them.
 - **Not checked:** the INE INSPIRE portal (under
   maintenance on the day); COS 2018 (site did not resolve); APA/SNIAmb hydrography and dam inventories (did not
   respond); the MDT-DGT products and licence; the INE municipality register; the ISO 3166-2:PT codes against the ISO

@@ -131,7 +131,7 @@ def vtt_windows(path, span=45):
         cur = [start, '']
         for line in lines:
             t = html.unescape(re.sub(r'<[^>]+>', '', line)).strip()
-            if t and not cur[1].endswith(t):
+            if t and not (cur[1].endswith(t) and (cur[1] == t or cur[1][-len(t) - 1].isspace())):
                 cur[1] = (cur[1] + ' ' + t).strip()
         cues.append(cur)
     out, start, buf, last = [], None, [], ''
@@ -213,19 +213,21 @@ class Index:
 
     def _load(self, truncate=True, db=None):
         if not self.vec_path.exists() or not AVAILABLE:
-            self.mat = np.zeros((0, DIM), dtype=np.float16) if AVAILABLE else None
-            self.active = np.zeros(0, dtype=bool) if AVAILABLE else None
+            with self.lock:
+                self.mat = np.zeros((0, DIM), dtype=np.float16) if AVAILABLE else None
+                self.active = np.zeros(0, dtype=bool) if AVAILABLE else None
             return
         raw = np.fromfile(self.vec_path, dtype=np.float16)
         n = len(raw) // DIM
         db = db or self._ro()
         rows = one(db, 'SELECT max(id) FROM chunk')[0] or 0
         n = min(n, rows)  # vectors beyond the committed chunk rows were from an interrupted run
-        self.mat = raw[:n * DIM].reshape(n, DIM)
+        mat = raw[:n * DIM].reshape(n, DIM)
         act = np.zeros(n, dtype=bool)
         for (i,) in db.execute('SELECT id FROM chunk WHERE active=1 AND id<=?', (n,)).fetchall():
             act[i - 1] = True
-        self.active = act
+        with self.lock:     # both at once: a search meanwhile uses the old pair, never new vectors with the old rows
+            self.mat, self.active = mat, act
         if truncate and n * DIM * 2 != self.vec_path.stat().st_size:
             with open(self.vec_path, 'r+b') as f:
                 f.truncate(n * DIM * 2)
@@ -266,7 +268,7 @@ class Index:
                 vtts = ([tx['vtt_path']] if tx and tx.get('vtt_path') else []) + [c for c in r.get('captions', []) if c.endswith('.vtt')]
                 vtt = next((v for v in vtts if (LIB / v).is_file()), None)
                 if vtt:
-                    out.append((r['id'], 'vtt:' + vtt, -self.trust_fn(r)[1], ('vtt', vtt)))
+                    out.append((r['id'], 'vtt:payload-2:' + vtt, -self.trust_fn(r)[1], ('vtt', vtt)))
                 elif tx and (LIB / tx['path']).is_file():
                     out.append((r['id'], 'tx:' + tx['sha256'], -self.trust_fn(r)[1], ('tx', tx)))
         out.sort(key=lambda x: x[2])

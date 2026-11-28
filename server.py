@@ -329,7 +329,7 @@ def query_groups(q):
             phrase_groups += g if isinstance(g[0], list) else [g]
             q = re.sub(rx, ' ', q)
     words = [w.lower() for w in re.findall(r"[\w'-]+", q)]
-    words = [w.strip("'") for w in words if w.strip("'")]
+    words = [w.strip("'") for w in words if re.search(r'[^\W_]', w)]   # a word has a letter or digit: a lone - or _ would be an empty term
     content = [w for w in words if w not in STOP] or ([] if phrase_groups else words)
     groups = []
     for w in content:
@@ -663,7 +663,7 @@ def vtt_cues(path):
         cur = {'t': t, 'text': ''}
         for line in lines:
             txt = html.unescape(re.sub(r'<[^>]+>', '', line)).strip()
-            if txt and not cur['text'].endswith(txt):
+            if txt and not (cur['text'].endswith(txt) and (cur['text'] == txt or cur['text'][-len(txt) - 1].isspace())):
                 cur['text'] = (cur['text'] + ' ' + txt).strip()
         cues.append(cur)
     # auto captions repeat lines across cues; drop repeats and merge into ~sentence chunks
@@ -1058,7 +1058,7 @@ TILE_POI = {'hospital', 'clinic', 'doctors', 'pharmacy', 'chemist', 'fire_statio
 HELP = {'hospital': 'Hospital', 'clinic': 'Clinic', 'doctors': 'Doctor', 'pharmacy': 'Pharmacy', 'chemist': 'Pharmacy',
         'dentist': 'Dentist', 'fire_station': 'Fire station', 'police': 'Police', 'drinking_water': 'Drinking water tap',
         'fountain': 'Fountain (not necessarily drinkable)', 'water_tower': 'Water tower', 'water_works': 'Water works',
-        'spring': 'Spring (untested)', 'toilet': 'Public toilet', 'shelter': 'Shelter (structure)',
+        'spring': 'Spring (untested)', 'water_well': 'Water well / hand pump (untested)', 'toilet': 'Public toilet', 'shelter': 'Shelter (structure)',
         'community_centre': 'Community centre', 'town_hall': 'Town hall', 'school': 'School', 'library': 'Library',
         'supermarket': 'Supermarket', 'convenience': 'Convenience store', 'doityourself': 'Hardware / DIY store',
         'hardware': 'Hardware store', 'garden_centre': 'Garden centre', 'post_office': 'Post office',
@@ -1407,25 +1407,35 @@ def water_places(q, limit=10, near=None):
 
 def places(q, limit=20, near=None):
     if address_search.is_address_query(q):
-        return address_search.find_addresses(q, HERE / 'derived' / 'geo', limit=min(limit, 8), near=near)
+        found = address_search.find_addresses(q, HERE / 'derived' / 'geo', limit=min(limit, 8), near=near)
+        if found or not address_search.is_german_postcode_query(q, HERE / 'derived' / 'geo'):
+            return found    # '10117 Berlin' is number-first too, but a place where a German index knows it
+    elif address_search.is_german_address_query(q):
+        # 'Unter den Linden 77' and 'Route 66' look alike: an address only when an installed index has that house
+        found = address_search.find_addresses(q, HERE / 'derived' / 'geo', limit=min(limit, 8), near=near)
+        if found:
+            return found
     if not PLACEDB.exists():
         return []
-    db = sqlite3.connect(ro_uri(PLACEDB), uri=True)
     words = re.findall(r'\w+', q)
     if not words:
         return []
     rows = []
     full = False
-    for ws in word_sets(words):
-        if full and len(ws) < len(words):
-            break  # every word matched somewhere: no need to loosen
-        if not ws:
-            continue
-        rows += db.execute('SELECT p.name,p.kind,p.detail,p.lat,p.lon,p.rank,p.source FROM place_fts f JOIN place p ON p.id=f.rowid '
-                           'WHERE place_fts MATCH ? ORDER BY p.rank, bm25(place_fts) LIMIT 200',
-                           (' '.join('"%s"*' % w.replace('"', '') for w in ws),)).fetchall()
-        if len(ws) == len(words):
-            full = bool(rows)
+    db = sqlite3.connect(ro_uri(PLACEDB), uri=True)
+    try:  # closed here, so the file can be removed or replaced afterwards (Windows refuses while it is open)
+        for ws in word_sets(words):
+            if full and len(ws) < len(words):
+                break  # every word matched somewhere: no need to loosen
+            if not ws:
+                continue
+            rows += db.execute('SELECT p.name,p.kind,p.detail,p.lat,p.lon,p.rank,p.source FROM place_fts f JOIN place p ON p.id=f.rowid '
+                               'WHERE place_fts MATCH ? ORDER BY p.rank, bm25(place_fts) LIMIT 200',
+                               (' '.join('"%s"*' % w.replace('"', '') for w in ws),)).fetchall()
+            if len(ws) == len(words):
+                full = bool(rows)
+    finally:
+        db.close()
     rows = list(dict.fromkeys(rows))
     def norm(t):
         return ' '.join(re.sub(r'\bsaint\b', 'st', re.sub(r'[^\w ]+', ' ', t.lower())).split())
