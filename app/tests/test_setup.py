@@ -1826,6 +1826,20 @@ class Jobs(Base):
         self.assertEqual(first.use(str(zips))['items'][0]['kind'], 'pack')          # first run's "Choose a library zip" as before
         self.wait(first)
 
+    def test_use_zip_is_an_offline_import_in_the_chosen_folder(self):
+        """wonderdawg on #465: a library zip already here installs in the folder chosen on screen with nothing downloaded,
+        even with the AI ticked on screen and a model server that refuses: the AI, a map or addresses are added after."""
+        mine = self.tmp / 'elsewhere' / 'Lastbook-Small.zip'
+        mine.parent.mkdir()
+        mine.write_bytes(self.zip)
+        self.files.data.pop('model.gguf')          # the model download is refused
+        chosen = self.tmp / 'chosen'
+        s = self.setup()
+        j = s.use(str(mine), folder=str(chosen))
+        self.assertIsNone(j.get('error'), j)
+        self.assertEqual(j['folder'], str(chosen / 'LastbookData'))
+        self.assertEqual([i['kind'] for i in j['items']], ['pack'])
+        self.assertEqual(self.wait(s)['state'], 'done')
     def test_restart_mid_download(self):
         """A child process downloads and is killed; a new Setup finds the job paused and resumes with Range."""
         self.files.pace = 0.01
@@ -1895,6 +1909,198 @@ class Jobs(Base):
     def child_config(self):
         return {'settings': str(self.settings), 'parent': str(self.parent), 'home': str(self.home), 'manifest': self.manifest().current,
                 'cert': str(self.tmp_class / 'cert.pem')}
+
+
+class StaleWorker(Base):
+    """A worker that outlives cancel() (which gives up joining) writes nothing: not into the cancelled job, not into the same job
+    revived by Retry or Resume, and no new job starts under it."""
+
+    def run_stuck(self, then):
+        s = self.setup()
+        entered, release = threading.Event(), threading.Event()
+        self.late = []          # (thread, what its late write raised) from the stuck worker
+
+        def stuck(self_, it, plan, work, control):
+            entered.set()
+            release.wait(10)
+            try:
+                self_._set(it, 'unpacking')
+                self_._fail(it, 'network', 'late failure')
+                self.late.append((threading.current_thread(), None))
+            except Exception as e:
+                self.late.append((threading.current_thread(), e))
+        with mock.patch.object(api.Setup, '_do_pack', stuck), mock.patch.object(api.Setup, '_join', lambda self_: self_.thread.join(0.2)):
+            s.start('small', False)
+            self.assertTrue(entered.wait(10))
+            first = s.thread
+            j = s.cancel()
+            then(s)
+            release.set()
+            first.join(10)
+            if s.thread is not first:
+                s.thread.join(10)
+        return s, j, first
+
+    def late_write(self, first):
+        return [e for t, e in self.late if t is first]
+
+    def test_late_worker_does_not_overwrite_a_cancelled_job(self):
+        s, j, first = self.run_stuck(lambda s: None)
+        self.assertEqual(j['error']['code'], 'cancelled')
+        self.assertNotIn('Nothing was changed', j['error']['message'])      # the worker was still running: that would not be true
+        self.assertIsInstance(self.late_write(first)[0], download.Stopped)
+        after = s.public_job()
+        self.assertEqual((after['state'], after['error']['code']), ('failed', 'cancelled'))
+        saved = json.loads(api._job_file(self.settings).read_text(encoding='utf-8'))
+        self.assertEqual(saved['error']['code'], 'cancelled')
+
+    def test_retry_is_refused_while_the_cancelled_worker_is_still_running(self):
+        out = []
+        s, j, first = self.run_stuck(lambda s: out.append(s.retry()))
+        self.assertEqual(out[0].get('code'), 'busy')
+        self.assertIn('still stopping', out[0]['error'])
+        self.assertIs(s.thread, first)                                          # no second worker in the same work folder
+        self.assertIsInstance(self.late_write(first)[0], download.Stopped)
+        self.assertEqual(s.public_job()['error']['code'], 'cancelled')
+        self.assertEqual(s.retry()['state'], 'waiting')                         # once it has stopped, Retry runs again
+        self.assertEqual(self.wait(s)['state'], 'done')
+
+    def test_resume_is_refused_while_the_cancelled_worker_is_still_running(self):
+        out = []
+
+        def then(s):
+            s.job['state'], s.job['error'] = 'paused', None
+            out.append(s.resume())
+        s, j, first = self.run_stuck(then)
+        self.assertEqual(out[0].get('code'), 'busy')
+        self.assertIs(s.thread, first)
+        self.assertIsInstance(self.late_write(first)[0], download.Stopped)
+        self.assertEqual(s.public_job()['state'], 'paused')                     # left for the person to resume once it has stopped
+
+    def test_resume_or_retry_from_a_stale_window_gets_the_running_job(self):
+        """Codex on #463: another window already restarted the job, so this window's Resume or Retry (from its cached paused or
+        failed screen) gets the running job back to show, not "still stopping"; nothing else starts."""
+        entered, release, real = threading.Event(), threading.Event(), Path.mkdir
+
+        def mkdir(p, *a, **kw):
+            if p.name == 'library-data' and 'unpack' in p.parts and not entered.is_set():
+                entered.set()
+                release.wait(10)
+            return real(p, *a, **kw)
+        s = self.setup()
+        with mock.patch.object(Path, 'mkdir', mkdir):
+            s.start('small', False)
+            self.assertTrue(entered.wait(10))
+            first = s.thread
+            for act in (s.resume, s.retry):
+                j = act()
+                self.assertNotIn('code', j)
+                self.assertIn(j['state'], api.ACTIVE)
+                self.assertIs(s.thread, first)                          # no second worker
+            release.set()
+        self.assertEqual(self.wait(s)['state'], 'done')
+
+    def test_new_job_is_refused_while_the_cancelled_worker_is_still_running(self):
+        out = []
+        s, j, first = self.run_stuck(lambda s: out.append(s.start('small', False)))
+        self.assertEqual(out[0].get('code'), 'busy')
+        self.assertIn('still stopping', out[0]['error'])
+        self.assertIs(s.thread, first)
+        self.assertEqual(s.public_job()['error']['code'], 'cancelled')
+
+    def test_copy_is_refused_while_the_cancelled_worker_is_still_running(self):
+        out = []
+        s, j, first = self.run_stuck(lambda s: out.append(s.start(copy_to=str(self.tmp / 'usb'))))
+        self.assertEqual(out[0].get('code'), 'busy')
+        self.assertIn('still stopping', out[0]['error'])
+        self.assertIs(s.thread, first)
+
+    def test_late_worker_does_not_install_a_cancelled_model(self):
+        """Review of #463: a model copied from another disk is still copying when cancel() gives up the join; once the copy ends
+        it does not go into the open library, and the AI is not told about it."""
+        cur = self.parent / 'LastbookData'
+        (cur / 'library-data').mkdir(parents=True)
+        (cur / 'library-data' / 'catalog.json').write_text('{}')
+        (cur / 'pack.json').write_text('{"name": "small"}')
+        mine = self.tmp / 'usb' / 'model.gguf'
+        mine.parent.mkdir()
+        mine.write_bytes(self.model)
+        s = self.setup('manage', current=cur)
+        entered, release, real = threading.Event(), threading.Event(), shutil.copyfile
+
+        def slow_copy(a, b, **kw):
+            entered.set()
+            release.wait(10)
+            return real(a, b, **kw)
+        with mock.patch.object(api, '_same_disk', lambda a, b: False), mock.patch.object(api.shutil, 'copyfile', slow_copy), \
+                mock.patch.object(api.Setup, '_join', lambda self_: self_.thread.join(0.2)):
+            self.assertEqual(s.use(str(mine))['items'][0]['kind'], 'model')
+            self.assertTrue(entered.wait(10))
+            first = s.thread
+            self.assertNotIn('Nothing was changed', s.cancel()['error']['message'])
+            self.assertEqual(s.remove_ai().get('code'), 'busy')       # nor is the AI removed under it
+            release.set()
+            first.join(10)
+        self.assertFalse((cur / 'models' / 'model.gguf').exists())
+        self.assertEqual(list((cur / 'models').glob('*.partial')), [])
+        self.assertEqual(self.marked, [])
+        self.assertEqual(s.public_job()['error']['code'], 'cancelled')
+
+    def test_late_progress_does_not_bring_a_cancelled_item_back(self):
+        """Review of #463: a progress report from the late worker leaves the cancelled item as it is."""
+        s, j, first = self.run_stuck(lambda s: None)
+        it = s.job['items'][0]
+        stale = []
+        t = threading.Thread(target=lambda: (setattr(s._worker, 'job', s.job), setattr(s._worker, 'run', s._run_id - 1),
+                                             s._track(it).progress(10, 100, 'unpacking'), stale.append(it['state'])))
+        t.start(); t.join(10)
+        self.assertEqual(stale, ['failed'])
+
+    def test_a_timed_out_cancel_is_finished_when_the_worker_ends(self):
+        """wonderdawg on #463: a real unpack held just before it makes a member's folder outlives the join; Cancel clears the
+        staging folder, the worker then writes a .partial there. Retry waits while it is alive, and the partial is gone once it ends."""
+        entered, release, real = threading.Event(), threading.Event(), Path.mkdir
+
+        def mkdir(p, *a, **kw):
+            if p.name == 'library-data' and 'unpack' in p.parts and not entered.is_set():
+                entered.set()
+                release.wait(10)
+            return real(p, *a, **kw)
+        s, seen = self.setup(), []
+
+        def join(self_):      # what another window asks for while cancel() waits on the worker
+            seen.append(self_.public_job().get('stopping'))
+            self_.thread.join(0.2)
+        with mock.patch.object(Path, 'mkdir', mkdir), mock.patch.object(api.Setup, '_join', join):
+            s.start('small', False)
+            self.assertTrue(entered.wait(10))
+            first = s.thread
+            j = s.cancel()
+            self.assertEqual(seen, [True])                           # stopping from the click, not only once cancel() returns
+            self.assertIn('finishing', j['error']['message'])
+            self.assertTrue(j.get('stopping'))                       # Setup keeps "Finishing cancellation…" up while it is blocked
+            self.assertTrue(s.state()['job'].get('stopping'))
+            self.assertEqual(s.retry().get('code'), 'busy')
+            release.set()
+            first.join(10)
+        unpack = self.parent / 'LastbookData.setup' / 'unpack'
+        self.assertEqual(sorted(str(p) for p in unpack.rglob('*.partial')) if unpack.exists() else [], [])
+        after = s.public_job()
+        self.assertEqual((after['state'], after['error']['code']), ('failed', 'cancelled'))
+        self.assertIn('Nothing was changed', after['error']['message'])
+        self.assertNotIn('stopping', after)                         # and lets it go once the cleanup is done
+        saved = json.loads(api._job_file(self.settings).read_text(encoding='utf-8'))
+        self.assertIn('Nothing was changed', saved['error']['message'])
+        self.assertEqual(s.retry()['state'], 'waiting')          # and Retry runs again
+        self.assertEqual(self.wait(s)['state'], 'done')
+
+    def test_cancel_with_nothing_running_says_nothing_changed(self):
+        self.files.data.pop('Lastbook-Small.zip')
+        s = self.setup()
+        with fast_backoff():
+            s.start('small', False)
+            self.wait(s)
+        self.assertIn('Nothing was changed', s.cancel()['error']['message'])
 
 
 class Switching(Base):
@@ -3243,6 +3449,48 @@ class Manage(Base):
             self.assertIn('copy again to the same place', j['error']['message'])
         self.assertTrue(api.install.is_library(lib))
 
+    def test_a_late_copy_partial_is_removed_when_the_worker_ends(self):
+        """wonderdawg on #463: the real Copy held just before it opens a file's .partial on the drive, Cancel returns, then the
+        worker goes on and makes that .partial. It is gone once the worker ends; the file copied before it stays."""
+        lib = self.installed_library()
+        entered, release, real, opened = threading.Event(), threading.Event(), api._open_new, []
+
+        def open_new(p):
+            if str(p).endswith('.partial') and COPY_DRIVE in Path(p).parts:
+                opened.append(Path(p))
+                if len(opened) == 2 and not entered.is_set():      # the first file is copied, the second is held
+                    entered.set()
+                    release.wait(10)
+            return real(p)
+        COPY_DRIVE = 'copy-drive'
+        drive = self.parent / COPY_DRIVE
+        drive.mkdir()
+        s, seen = self.setup('manage', current=lib), []
+
+        def join(self_):
+            seen.append(self_.public_job().get('stopping'))
+            self_.thread.join(0.2)
+        with mock.patch.object(api, '_open_new', open_new), mock.patch.object(api.Setup, '_join', join):
+            s.start(copy_to=str(drive))
+            self.assertTrue(entered.wait(10))
+            first = s.thread
+            j = s.cancel()
+            self.assertEqual(seen, [True])
+            self.assertTrue(j.get('stopping'))                       # Setup shows it is still stopping
+            self.assertEqual(s.retry().get('code'), 'busy')
+            release.set()
+            first.join(10)
+            self.assertFalse(first.is_alive())
+        out = drive / 'LastbookData'
+        self.assertEqual(sorted(str(p) for p in drive.rglob('*.partial')), [])      # the late partial went with the worker
+        done = opened[0].with_name(opened[0].name[:-len('.partial')])
+        rel = done.relative_to(out).as_posix()
+        self.assertEqual(done.read_bytes(), (lib / rel).read_bytes())             # what was already copied stays
+        after = s.public_job()
+        self.assertEqual((after['state'], after['error']['code']), ('failed', 'cancelled'))
+        self.assertNotIn('stopping', after)
+        self.assertTrue(api.install.is_library(lib))
+
     def test_copy_refuses_a_lastbookdata_that_is_a_file(self):
         """A plain file called LastbookData on the drive gets the usual folder refusal, not an internal error."""
         lib = self.installed_library()
@@ -4086,6 +4334,23 @@ class Maps(Base):
         merged = manifest.merge(mf.current, {**mf.current, 'maps': []})
         self.assertEqual([x['id'] for x in merged['maps']], ['CA'])
 
+    def test_another_maps_unpacked_files_are_not_reused(self):
+        """#86 for maps: a file left in unpack-map/ by another map is not taken as whole because its size matches."""
+        mf, files = self.map_manifest()
+        cur = self.parent / 'LastbookData'
+        (cur / 'library-data').mkdir(parents=True)
+        (cur / 'library-data/catalog.json').write_text('{}')
+        (cur / 'pack.json').write_text('{"name": "small", "map": "base"}')
+        stale = self.parent / 'LastbookData.setup' / 'unpack-map' / 'LastbookData' / 'derived/geo/map.sqlite'
+        stale.parent.mkdir(parents=True)
+        stale.write_bytes(b'x' * len(files['derived/geo/map.sqlite']))
+        s = self.setup('manage', current=cur, manifest=mf)
+        s.start(None, False, map_id='CA')
+        self.assertEqual(self.wait(s)['state'], 'done')
+        lib, note = api.startup(self.settings)
+        self.assertIsNone(note.get('error'))
+        self.assertEqual((lib / 'derived/geo/map.sqlite').read_bytes(), files['derived/geo/map.sqlite'])
+
 
 class AddressIndexes(Maps):
     def address_manifest(self, wrong_path=False):
@@ -4102,6 +4367,24 @@ class AddressIndexes(Maps):
             'installed_bytes': len(payload), 'download_bytes': len(data),
             'files': [{'name': name, 'url': f'{self.base}/{name}', 'size': len(data), 'sha256': sha(data), 'kind': 'zip'}]}]
         return mf, payload
+
+    def test_use_zip_of_a_pack_with_a_state_map_downloads_no_addresses(self):
+        """Codex on #465: a library zip whose pack names a state map (pack.map) still installs as it is: the address index the
+        pack's map would bring is not downloaded with it, so the import finishes offline."""
+        mf, _ = self.address_manifest()
+        for p in mf.current['packs']:
+            if p['id'] == 'small':
+                p['map'] = 'CA'
+        mine = self.tmp / 'elsewhere' / 'Lastbook-Small.zip'
+        mine.parent.mkdir()
+        mine.write_bytes(self.files.data['Lastbook-Small.zip'])
+        self.files.log.clear()
+        s = self.setup(manifest=mf)
+        j = s.use(str(mine), folder=str(self.tmp / 'chosen'))
+        self.assertIsNone(j.get('error'), j)
+        self.assertEqual([i['kind'] for i in j['items']], ['pack'])
+        self.assertEqual(self.wait(s)['state'], 'done')
+        self.assertEqual(self.files.log, [])                                   # nothing downloaded
 
     def test_fresh_map_download_includes_addresses(self):
         mf, payload = self.address_manifest()
@@ -4123,6 +4406,15 @@ class AddressIndexes(Maps):
         info = self.setup('manage', current=library, manifest=mf).current_info()
         self.assertEqual((info['map'], info['address_indexes']), ('base', []))
 
+    def test_noted_map_and_address_files_say_what_they_are(self):
+        mf, _ = self.address_manifest()
+        s = self.setup(manifest=mf)
+        for name, kind in (('Lastbook-Map-CA.zip', 'map'), ('Lastbook-Addresses-CA.zip', 'addresses')):
+            mine = self.tmp / 'elsewhere' / name
+            mine.parent.mkdir(exist_ok=True)
+            mine.write_bytes(self.files.data[name])
+            self.assertEqual(s.use(str(mine)), {'job': None, 'noted': True, 'kind': kind})
+
     def test_existing_map_downloads_only_missing_index(self):
         mf, payload = self.address_manifest()
         library = self.parent / 'LastbookData'
@@ -4139,6 +4431,22 @@ class AddressIndexes(Maps):
         self.assertEqual((library / 'derived/geo/map.sqlite').read_bytes(), b'existing map')
         self.assertEqual((library / 'derived/geo/addresses/CA.sqlite').read_bytes(), payload)
         self.assertEqual(setup.start(address_id='CA')['code'], 'nothing')
+
+    def test_another_address_downloads_unpacked_file_is_not_reused(self):
+        """#86 for address indexes: a file left in unpack-addresses/ by another download is not taken as whole."""
+        mf, payload = self.address_manifest()
+        library = self.parent / 'LastbookData'
+        (library / 'library-data').mkdir(parents=True)
+        (library / 'library-data/catalog.json').write_text('{}')
+        (library / 'pack.json').write_text('{"name":"all","map":"us"}')
+        stale = self.parent / 'LastbookData.setup' / 'unpack-addresses' / 'LastbookData' / 'derived/geo/addresses/CA.sqlite'
+        stale.parent.mkdir(parents=True)
+        stale.write_bytes(b'x' * len(payload))
+        setup = self.setup('manage', current=library, manifest=mf)
+        setup.start(address_id='CA')
+        self.assertEqual(self.wait(setup)['state'], 'done')
+        self.assertEqual((library / 'derived/geo/addresses/CA.sqlite').read_bytes(), payload)
+        self.assertEqual(list((self.parent / 'LastbookData.setup').glob('kept-*')), [])   # removed, not set aside as the person's files
 
     def test_all_library_can_add_one_state_addresses(self):
         mf, payload = self.address_manifest()

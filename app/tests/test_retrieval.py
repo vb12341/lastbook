@@ -75,5 +75,41 @@ class Semantic(unittest.TestCase):
         self.assertLessEqual(len(fetched), 4)
 
 
+class Reload(unittest.TestCase):
+    def test_a_search_during_a_reload_sees_matching_vectors_and_rows(self):
+        """refresh() reloads when the indexer (another process) appended passages. A search while _load is between its
+        steps must not see the new, longer vectors with the old, shorter list of active rows (IndexError)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            idx = make_index(tmp, [('a', vec(1.0)), ('b', vec(1.0))])
+            try:
+                db = idx._db()
+                db.execute('INSERT INTO chunk(id,doc_id,page,t,text,active) VALUES(3,?,1,3.0,?,1)', ('c', TEXT))
+                db.close()
+                with open(idx.vec_path, 'ab') as f:
+                    np.array([vec(1.0)], dtype=np.float16).tofile(f)
+                during = []
+
+                class Midway:     # the reader _load uses, running a search when it starts reading the active rows
+                    def __init__(self, real):
+                        self.real = real
+
+                    def execute(self, sql, *a):
+                        if 'active=1' in sql:
+                            try:
+                                during.append([g['doc_id'] for g in idx.semantic('water', 5)])
+                            except Exception as e:
+                                during.append(e)
+                        return self.real.execute(sql, *a)
+                with mock.patch.object(retrieval, 'AVAILABLE', True):
+                    idx._load(truncate=False, db=Midway(idx._ro()))
+                    after = sorted(g['doc_id'] for g in idx.semantic('water', 5))
+            finally:
+                close_index(idx)
+        self.assertEqual(len(during), 1)
+        self.assertIsInstance(during[0], list, during[0])
+        self.assertEqual(sorted(during[0]), ['a', 'b'])     # the index as it was until the reload is done
+        self.assertEqual(after, ['a', 'b', 'c'])
+
+
 if __name__ == '__main__':
     unittest.main()

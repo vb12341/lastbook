@@ -430,6 +430,9 @@
    "id": "poison",
    "label": "Poisoning: swallowed a chemical, medicine or pesticide",
    "hint": "Poisoned by a cleaning product, rat poison, too many pills (overdose), fuel, button battery, a child got into something",
+   "phrases": ["drank bleach", "drank gasoline", "drank petrol", "drank kerosene", "drank paraffin", "drank antifreeze", "drank diesel", "drank fuel", "drank detergent", "drank weed killer", "swallowed gasoline", "swallowed petrol", "swallowed kerosene", "swallowed antifreeze", "swallowed weed killer", "ate weed killer", "induce vomiting", "make him vomit", "make her vomit", "make them vomit", "make him throw up", "make her throw up", "make them throw up", "give activated charcoal", "giving activated charcoal", "activated charcoal for poisoning", "activated charcoal after poisoning"],
+   "context": ["son", "daughter", "kid", "child", "baby", "toddler", "she", "her", "him", "his", "much", "little", "sip", "mouthful", "accident", "accidentally", "what", "now", "should"],
+   "unless": ["dog", "dogs", "puppy", "puppies", "cat", "cats", "kitten", "kittens", "pet", "pets", "horse", "horses", "goat", "goats", "cow", "cows", "chicken", "chickens", "sheep", "pig", "pigs", "rabbit", "vet"],
    "read": [
     {
      "doc": "med-2e83e22162a9a006",

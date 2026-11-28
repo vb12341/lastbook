@@ -13,9 +13,9 @@ Website: <https://lastbook.org>. Contact: hello@lastbook.org.
 
 | Platform | Version | Status |
 |---|---|---|
-| macOS (Apple Silicon, macOS 14 or later) | 1.1.18 | Live on lastbook.org, signed and notarized |
-| Windows (64-bit, Windows 10 or later) | 1.1.18 | Live on lastbook.org, Authenticode signed |
-| Linux (Ubuntu 24.04 or 26.04 LTS, x86_64) | 1.1.18 | Ubuntu packages; installation instructions below |
+| macOS (Apple Silicon, macOS 14 or later) | 1.1.19 | Live on lastbook.org, signed and notarized |
+| Windows (64-bit, Windows 10 or later) | 1.1.19 | Live on lastbook.org, Authenticode signed |
+| Linux (Ubuntu 24.04 or 26.04 LTS, x86_64) | 1.1.19 | Ubuntu packages; installation instructions below |
 
 ## iPad (development preview, source only)
 
@@ -27,11 +27,11 @@ A native iPad app (Videos, Map and Chat, offline, with optional on-device AI) is
 ## Install on Linux
 
 The Linux packages target **Ubuntu 24.04 LTS and Ubuntu 26.04 LTS on Intel/AMD x86_64 computers**, one package for each. Download
-[Lastbook for Ubuntu 24.04](https://downloads.lastbook.org/Lastbook_1.1.18_amd64.deb) (or [for Ubuntu 26.04](https://downloads.lastbook.org/Lastbook_1.1.18_ubuntu26.04_amd64.deb)), then install it with apt so Ubuntu resolves its dependencies.
+[Lastbook for Ubuntu 24.04](https://downloads.lastbook.org/Lastbook_1.1.19_amd64.deb) (or [for Ubuntu 26.04](https://downloads.lastbook.org/Lastbook_1.1.19_ubuntu26.04_amd64.deb)), then install it with apt so Ubuntu resolves its dependencies.
 
 ```bash
-sudo apt install ./Lastbook_1.1.18_amd64.deb                  # Ubuntu 24.04
-sudo apt install ./Lastbook_1.1.18_ubuntu26.04_amd64.deb      # Ubuntu 26.04
+sudo apt install ./Lastbook_1.1.19_amd64.deb                  # Ubuntu 24.04
+sudo apt install ./Lastbook_1.1.19_ubuntu26.04_amd64.deb      # Ubuntu 26.04
 ```
 
 Open Lastbook from the application menu. First-run setup downloads your chosen library, state map and optional local AI.
@@ -241,9 +241,9 @@ bash packaging/linux/build_app_linux.sh
 
 The package uses the system Python and pinned wheels from `packaging/linux/requirements_linux.txt`, built for that Python
 only, so each release gets its own package. On 24.04 (Python 3.12) the app build creates
-`derived/app-build/linux/<timestamp>/Lastbook_1.1.18_amd64.deb`; on 26.04 (Python 3.14) it creates
-`Lastbook_1.1.18_ubuntu26.04_amd64.deb`, with the version `1.1.18+ubuntu26.04`, which apt takes as newer than the 24.04 package; on Debian 13 (Python 3.13) it creates
-`Lastbook_1.1.18_debian13_amd64.deb`, with the version `1.1.18+debian13`.
+`derived/app-build/linux/<timestamp>/Lastbook_1.1.19_amd64.deb`; on 26.04 (Python 3.14) it creates
+`Lastbook_1.1.19_ubuntu26.04_amd64.deb`, with the version `1.1.19+ubuntu26.04`, which apt takes as newer than the 24.04 package; on Debian 13 (Python 3.13) it creates
+`Lastbook_1.1.19_debian13_amd64.deb`, with the version `1.1.19+debian13`.
 It bundles the local AI runner when `derived/llm/bin-linux/lastbook-llm` exists. `packaging/linux/smoke_deb.sh` checks
 the package in a fresh container of the same release.
 Linux integration-test helpers live under `app/tests/linux_*`; set `LASTBOOK_TEST_HOST` to a Windows SSH host with WSL2

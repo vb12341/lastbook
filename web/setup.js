@@ -77,7 +77,7 @@
   let folder = '';
   let shortfall = null;   // the answer to a start that had no room: {need_bytes, free_bytes}
   let pollT = 0;
-  let confirmCancel = false, confirmRemove = false, confirmOld = false;
+  let confirmCancel = false, confirmRemove = false, confirmOld = false, cancelling = false;
   let note = '', noteOk = false;
   let emptyTries = 0;     // times state was asked again because the manifest came back with no libraries
   let shown = '';         // the state answer the screen last drew: a background answer the same as it draws nothing
@@ -209,7 +209,7 @@
     }
     if (!bg) { const u = await upd; U = u && !u.error ? u : null }   // a background answer keeps what the first load found, with no second wait
     const j = S.job;
-    if (j && j.state && j.state !== 'done' && !(j.state === 'failed' && errCode(j.error) === 'cancelled')) view = 'job';
+    if (j && j.state && j.state !== 'done' && (j.stopping || !(j.state === 'failed' && errCode(j.error) === 'cancelled'))) view = 'job';
     else if (j && j.state === 'done') view = (j.copy || j.check) && cur() ? 'manage' : 'done';   // a finished copy, or Check now: back to Library and local AI
     else if (cur() || S.mode === 'manage' || MANAGE_ASKED) view = cur() ? 'manage' : 'choose';
     $('#sBack').hidden = !cur();
@@ -307,6 +307,7 @@
         ${c ? '' : '<button class="s-link" id="haveLib">Choose an existing library folder</button>'}
         <button class="s-link" id="haveFile">Choose a library zip or AI model file</button>
       </div>
+      ${c ? '' : '<p class="s-hint" id="zipHint">A library zip is installed as it is, on its own. The local AI, a map and address search can be added after, from Library and local AI.</p>'}
       <p class="s-note" id="haveNote" hidden></p>`;
     main.querySelectorAll('input[name=pack]').forEach(r => r.onchange = () => { setPack(r.value); shortfall = null; mapSection(); summary() });
     const box = $('#aiBox'); if (box && !box.disabled) box.onchange = () => { choice.ai = box.checked; shortfall = null; summary() };
@@ -400,9 +401,18 @@
   async function useFile(path, btn, only) {
     if (btn) btn.disabled = true;
     try {
-      const r = await call('use', { path, ...only });
+      const r = await call('use', { path, folder, ...only });   // a library zip goes to the folder chosen on screen, as it is: nothing is downloaded
       if (r && r.error) throw new Error(r.error);
-      if (r && r.noted) { S = await call('state').catch(() => S); choice.ai = true; chooseView(); const n = $('#haveNote'); n.hidden = false; n.textContent = 'The local AI file will be used. No need to download it.'; return }
+      if (r && r.noted) {   // a model, map or address file kept for the start that follows; only the model is the AI's tick
+        S = await call('state').catch(() => S);
+        const kind = r.kind || 'model';
+        if (kind === 'model') choice.ai = true;
+        chooseView(); const n = $('#haveNote'); n.hidden = false;
+        const what = kind === 'model' ? 'local AI' : kind === 'map' ? 'map' : 'address search';   // the noted file is for the start button, not for a library zip
+        const by = !mapMissing() && $('#start').textContent ? `“${$('#start').textContent}”` : `${cur() ? 'the button above' : '“Download and install”'}, once your state is chosen`;
+        n.textContent = `The ${what} file will be used by ${by}, with nothing to download for it. A library zip is installed without it.`;
+        return;
+      }
       S.job = r; go(r.state === 'done' ? 'done' : 'job'); poll();
     } catch (e) {
       if (btn) btn.disabled = false;
@@ -728,6 +738,15 @@
   function jobView(j) {
     if (!j) { go(cur() ? 'manage' : 'choose'); return }
     if (j.state === 'done') { go('done'); return }
+    if (cancelling || j.stopping) {   // the cancelled work has not stopped yet: nothing new can start until it has (#463 review)
+      if (shapeKey !== 'stopping') {
+        shapeKey = 'stopping';
+        main.innerHTML = `<h1>Finishing cancellation…</h1><p class="lead" role="status">${j.copy ? 'Lastbook is stopping the copy.' : j.check ? 'Lastbook is stopping the check.' : 'Lastbook is stopping the download and clearing its files.'} You can choose again once it has stopped.</p>`;
+        if (!languageHasFocus()) { const h = main.querySelector('h1'); h.tabIndex = -1; h.focus({ preventScroll: true }) }
+        live.textContent = 'Finishing cancellation…';
+      }
+      return;
+    }
     syncRepair(j);
     const key = j.state + '|' + errCode(j.error) + '|' + confirmCancel + '|' + j.items.map(i => i.kind + ':' + i.id + ':' + i.state).join(',');
     const head = jobHead(j);
@@ -781,18 +800,34 @@
     if (a === 'cancel-no') { confirmCancel = false; jobView(S.job); return }
     if (a === 'cancel-yes') { confirmCancel = false; a = 'cancel' }
     b.disabled = true; lastAct = a;
-    try { const j = await call(a, {}); if (j && j.items) S.job = j } catch { }
-    if (a === 'cancel') { const was = S.job && S.job.copy, wasCheck = S.job && S.job.check; S = await call('state').catch(() => S); S.job = null; go(cur() ? 'manage' : 'choose'); live.textContent = wasCheck ? 'The check was stopped. Nothing was changed.' : was ? 'The copy was stopped. What was copied is on the drive.' : 'The download was cancelled.'; return }
+    if (a === 'cancel') { cancelling = true; clearTimeout(pollT); jobView(S.job) }   // "Finishing cancellation…" from the click: cancel waits for the work to stop
+    let ok = false;
+    try {
+      const j = await call(a, {});
+      if (j && j.items) { S.job = j; ok = true }
+      else if (j && j.code === 'busy') { const k = await call('job'); if (k && k.items) S.job = k }   // the job as it is now, to show and poll
+    } catch { }
+    cancelling = false;
+    if (a === 'cancel' && ok && !S.job.stopping) { await cancelled(); return }   // a refused cancel stays on the job, which still runs
     jobView(S.job);
     poll();
   }
+  /* the "Finishing cancellation…" screen is up and the engine now says the work has stopped */
+  function wasStopping(j) { return shapeKey === 'stopping' && j && !j.stopping && j.state === 'failed' && errCode(j.error) === 'cancelled' }
+  /* back to Setup once the cancelled work has stopped */
+  async function cancelled() {
+    const was = S.job && S.job.copy, wasCheck = S.job && S.job.check;
+    S = await call('state').catch(() => S); S.job = null; go(cur() ? 'manage' : 'choose');
+    live.textContent = wasCheck ? 'The check was stopped. Nothing was changed.' : was ? 'The copy was stopped. What was copied is on the drive.' : 'The download was cancelled.';
+  }
   function poll() {
     clearTimeout(pollT);
-    if (!S.job || !ACTIVE.has(S.job.state)) return;
+    if (!S.job || !(ACTIVE.has(S.job.state) || S.job.stopping)) return;
     pollT = setTimeout(async () => {
       try { const j = await call('job'); if (j) S.job = j } catch { pollT = setTimeout(poll, 3000); return }
-      if (view !== 'job') return;
+      if (view !== 'job' || cancelling) return;
       if (S.job && S.job.state === 'done') { go('done'); return }
+      if (wasStopping(S.job)) { await cancelled(); return }
       jobView(S.job);
       poll();
     }, 1000);
@@ -861,7 +896,7 @@
     else if (confirmRemove || confirmOld) { const f = confirmRemove ? '#rmAi' : '#rmOld'; confirmRemove = confirmOld = false; manageView(); $(f).focus() }
   });
   /* the window comes back to the front: the job may have moved on, or a restart paused it */
-  addEventListener('focus', () => { if (view === 'job') call('job').then(j => { if (j) { S.job = j; jobView(j); poll() } }).catch(() => { }) });
+  addEventListener('focus', () => { if (view === 'job') call('job').then(j => { if (!j || view !== 'job' || cancelling) return; S.job = j; if (wasStopping(j)) { cancelled(); return } jobView(j); poll() }).catch(() => { }) });
 
   load().then(() => { if (view === 'job') poll() });
 })();

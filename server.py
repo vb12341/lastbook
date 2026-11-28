@@ -329,7 +329,7 @@ def query_groups(q):
             phrase_groups += g if isinstance(g[0], list) else [g]
             q = re.sub(rx, ' ', q)
     words = [w.lower() for w in re.findall(r"[\w'-]+", q)]
-    words = [w.strip("'") for w in words if w.strip("'")]
+    words = [w.strip("'") for w in words if re.search(r'[^\W_]', w)]   # a word has a letter or digit: a lone - or _ would be an empty term
     content = [w for w in words if w not in STOP] or ([] if phrase_groups else words)
     groups = []
     for w in content:
@@ -663,7 +663,7 @@ def vtt_cues(path):
         cur = {'t': t, 'text': ''}
         for line in lines:
             txt = html.unescape(re.sub(r'<[^>]+>', '', line)).strip()
-            if txt and not cur['text'].endswith(txt):
+            if txt and not (cur['text'].endswith(txt) and (cur['text'] == txt or cur['text'][-len(txt) - 1].isspace())):
                 cur['text'] = (cur['text'] + ' ' + txt).strip()
         cues.append(cur)
     # auto captions repeat lines across cues; drop repeats and merge into ~sentence chunks

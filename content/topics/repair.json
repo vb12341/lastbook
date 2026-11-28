@@ -17,7 +17,6 @@
   "axe",
   "plumbing",
   "faucet",
-  "toilet",
   "water heater",
   "woodworking",
   "carpentry",
@@ -88,7 +87,7 @@
   {
    "id": "plumbing",
    "label": "A tap drips or the toilet keeps running",
-   "hint": "Basic plumbing fixes",
+   "hint": "Basic plumbing fixes, leaking toilet or tap",
    "read": [
     {
      "doc": "eng-cc45c31a68f597a7",
