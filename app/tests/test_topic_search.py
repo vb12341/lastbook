@@ -565,6 +565,30 @@ DRANK_NOT_POISON = ['kill myself', 'i want to kill myself', 'she wants to kill h
                     'activated charcoal', 'activated charcoal water filter']
 TOPS = sorted({*TOPS, *DRANK_AND_VOMIT, *DRANK_UNDISTURBED, *DRANK_NOT_POISON})
 
+# #507: the word a first aid book uses for the check reached nothing, or something unrelated. "airway" was in no
+# guide, so "open the airway" went to seed saving ("open" starts "open-pollinated") and "clear the airway" to water
+# filtering ("clear bottles"). The check choice cites "The ABCDE check: Airway, Breathing, Circulation, Disability,
+# Exposure" and an IFRC reading that names "unresponsive, breathing, severe bleeding", and its second reading is the
+# head-to-toe check. Phrases gated by context, so the words that carried those searches away cannot carry them here.
+# [guide, choice] that must come first.
+AIRWAY_WORDS = {
+    'airway': ['hurt', 'check'], 'airways': ['hurt', 'check'],
+    'open the airway': ['hurt', 'check'], 'clear the airway': ['hurt', 'check'],
+    'opening the airway': ['hurt', 'check'], 'how do i open the airway': ['hurt', 'check'],
+    'ABCDE': ['hurt', 'check'], 'ABCDE check': ['hurt', 'check'],
+    'unresponsive': ['hurt', 'check'], 'person is unresponsive': ['hurt', 'check'],
+    'head to toe': ['hurt', 'check'], 'he wont wake up': ['hurt', 'check'],
+}
+# The gate closing is what keeps the breathing choice: "breathing" is in neither the context list nor the check
+# choice's own words, so a search that names it never reaches these phrases at all.
+AIRWAY_UNDISTURBED = {
+    'unresponsive and not breathing': ['hurt', 'breathing'],
+    'unresponsive not breathing': ['hurt', 'breathing'],
+    'open pollinated seeds': ['grow', 'save-seed'], 'save seed': ['grow', 'save-seed'],
+    'clear bottles': ['water', 'filter'], 'water filter': ['water', 'unsafe'],
+}
+TOPS = sorted({*TOPS, *AIRWAY_WORDS, *AIRWAY_UNDISTURBED})
+
 CASES = {
     'stop': QSTOP, 'fold': list(FOLD), 'match': [m[:2] for m in MATCH], 'rank': ENGLISH, 'topics': TOPICS,
     'rankOwn': RANK_OWN, 'rankForms': [[q, FORM_TOPICS] for q in RANK_FORMS],
@@ -883,6 +907,13 @@ class TopicSearch(unittest.TestCase):
             for q in DRANK_NOT_POISON:
                 with self.subTest(q=q, segmenter=r['segmenter']):
                     self.assertNotIn(['hurt', 'poison'], top[q])
+
+    def test_the_words_a_first_aid_book_uses_for_the_check(self):
+        for r in self.modes:
+            top = dict(zip(TOPS, (ok(e) for e in r['tops'])))
+            for q, first in {**AIRWAY_WORDS, **AIRWAY_UNDISTURBED}.items():
+                with self.subTest(q=q, segmenter=r['segmenter']):
+                    self.assertEqual(top[q][:1], [first])   # an empty result fails, not errors
 
     def test_avalanche_landslide_and_volcano(self):
         for r in self.modes:

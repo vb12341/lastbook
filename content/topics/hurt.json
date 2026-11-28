@@ -89,6 +89,8 @@
    "id": "check",
    "label": "I don't know what's wrong – how do I check the person?",
    "hint": "Accident, collapse, several injured people, you need a calm order of steps",
+   "phrases": ["airway", "airways", "abcde", "abcde check", "unresponsive", "head to toe", "head-to-toe", "wont wake up", "will not wake up"],
+   "context": ["open", "opening", "opened", "clear", "clearing", "check", "checking", "order", "how", "what", "person", "man", "woman", "casualty", "patient", "him", "her", "them", "adult", "child", "first", "aid", "steps", "do", "done"],
    "read": [
     {
      "doc": "med-443ae5cfaa6ecc68",
